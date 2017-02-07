@@ -1,0 +1,202 @@
+---
+title: "DATA 609 Homework 1"
+author: "Dan Smilowitz"
+date: "February 5, 2017"
+output:
+  pdf_document: 
+    highlight: pygments
+  html_notebook:
+    theme: flatly
+  html_document:
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(message=FALSE, warning=FALSE, comment=NA, fig.align = 'center')
+```
+
+
+### Section 1.1, Problem 10
+Each month, the annuity increased through interest earned equal to  1% of the previous month's balance and decreases through withdrawal of \$1,000.  Therefore, the change in monthly balance can be modeled by $\Delta a = 0.01a_n - 1000$.  Substituting in $\Delta a = a_{n+1} - a_n$ and solving for $a_{n+1}$, the dynamical system can be modeled using
+$$\begin{aligned}
+a_{n+1} &= 1.01a_n - 1000 \\
+a_0 &= 50000
+\end{aligned}$$
+
+Iterating through this dynamical system, the annuity will run out of money (i.e. $a_n = 0$) after 70 months (six years), as shown in the table and plot below.
+
+```{r annuity}
+# set initial value a_0
+a <- 50000
+
+# iterate until a_n <= 0
+while (min(a) > 0) {
+  a_n <- a[length(a)] - 1000 + 0.01 * a[length(a)]
+  a <- c(a, a_n)
+}
+
+# set a = 0 to avoid negatives
+a[length(a)] <- 0
+```
+
+```{r annuity-plot, echo = FALSE, fig.width=8, fig.height=4}
+# create and plot data frame
+df_annuity <- data.frame(n = 0:(length(a) - 1), a)
+
+library(ggplot2)
+p_annuity <- ggplot(df_annuity, aes(x = n, y = a)) + 
+  geom_point() + geom_line() + 
+  scale_x_continuous(NULL) + scale_y_continuous(NULL)
+
+# create table and show table and plot
+library(gridExtra)
+tbl_annuity <- rbind(head(df_annuity, 3), 
+                     c('...', '...'), 
+                     round(tail(df_annuity, 3), 2))
+
+grid.arrange(tableGrob(tbl_annuity, rows=NULL), p_annuity,
+             nrow = 1, widths = c(0.2, 0.8),
+             top = 'Value of Annuity Earning 1% Interest with $1,000 withdrawals\n')
+```
+
+
+### Section 1.2, Question 9
+The changes in $a_n$ are calculated and shown below:
+```{r brake}
+# read in data
+txt <- textConnection('1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+3 6 11 21 32 47 65 87 112 140 171 204 241 282 325 376')
+dat <- strsplit(readLines(txt), ' ')
+
+library(readr)
+df_brake <- data.frame(
+  matrix(parse_number(unlist(dat)), ncol = 2, dimnames = list(NULL, c('n', 'a')))
+  )
+
+# calculate delta
+library(dplyr)
+df_brake$delta <- df_brake$a - lag(df_brake$a)
+```
+
+```{r delta-table, echo=FALSE}
+# show delta with table
+library(pander)
+pander(t(as.matrix(df_brake)))
+```
+
+
+The values, plotted against $n$, show a nearly linear relationship:
+
+```{r brake-plot, echo=FALSE}
+ggplot(df_brake, aes(x = n, y = delta)) + 
+  geom_point() + ggtitle('Change in Required Braking Distance vs. Speed')
+```
+
+Using the `lm` function in R, the best linear fit between values of $\Delta a_n$ and $a_n$  which passes through the origin has a slope of 0.1526.  This means that $\Delta a_n = 0.1526$, so the difference equation model is given by
+$$\begin{aligned}
+a_{n+1} &= a_n + 0.1526a_n = 1.1526a_n \\
+a_1 &= 3
+\end{aligned}$$
+
+Using this equation to estimate values of $a_n$ for the provided values of $n$, the errors in predicted values are related to $n$ as follows:
+```{r brake-errors}
+# get slope of line through origin
+m <- coefficients((lm(delta ~ 0 + a, df_brake)))[[1]]
+
+# get predicted values
+df_brake$pred <- lag(df_brake$a) * (m + 1)
+df_brake$pred[1] <- df_brake$a[1] # plug in a_1 for pred_1
+
+# calculate errors
+df_brake$error <- df_brake$pred - df_brake$a
+```
+
+```{r error-plot, echo=FALSE}
+ggplot(df_brake, aes(x = n, y = error)) + geom_point() + 
+  ggtitle('Error of Predicted Value vs. n')
+```
+
+This distribution is clearly non-random -- the errors are nearly all negative, and first increase in magnitude through $n=8$ then decrease in magnitude.  This suggests that the linear model may not be appropriate, as it fails to capture changes in $\Delta a_n$ at intermediate values of $n$.
+
+\newpage{}
+
+### Section 1.3, Question 13
+Iterating through the system
+$$\begin{aligned}
+r_{n+1} &= r_n + 0.001r_n \times (1000 - r_n) \\
+r_0 &= 4
+\end{aligned}$$
+
+all 1,000 employees will have heard the rumor after 10 days (assuming that fractional values are not significant -- if they are, the rumor will reach all employees within 14 days).  The spread of the rumor is shown below.
+
+```{r rumor}
+# set initial conditions
+r <- 4
+n <- 0
+k <- 0.001
+
+# iterate until r = 1000
+while(round(max(r), 0) < 1000) {
+  n <- c(n, max(n) + 1)
+  r <- c(r, max(r) + k * max(r) * (1000 - max(r)))
+}
+```
+
+```{r rumor-plot, echo=FALSE}
+qplot(n, r, geom='point') + ggtitle('Spread of a Rumor in a Company of 1000 Employees')
+```
+
+
+### Section 1.4, Question 6
+For the equilibrium conditions $(P, Q)$, the system becomes
+$$\begin{aligned}
+P &= P - 0.1(Q - 500) &\hspace{0.5in} Q &=Q + 0.2(P - 100) \\
+0 &= 0.1Q + 50 &\hspace{0.5in} 0 &= 0.2P + 20 \\
+Q &= 500 &\hspace{0.5in} P &= 100
+\end{aligned}$$
+
+So the equilibrium conditions are $(P, Q) = (100, 500)$
+
+These values represent the price (100) at which quantity will remain the same as in the previous period and the quantity (500) at which the price will remain the same as in the previous period.  The constants of -0.1 and 0.2 represent the strength and direction of the interaction between price and quantity -- the signs indicate that increased quantity will decrease the price, and that increased price will increase the quantity.  This makes sense intuitively -- suppliers will be more interested in producing the product if the price is higher, and retailers will be likely to lower prices if there is a surplus of the product available.
+
+```{r econ}
+# set initial conditions
+P0 <- c(100, 200, 100, 100)
+Q0 <- c(500, 500, 600, 400)
+
+# create data frame container
+df_econ <- data.frame(n = numeric(), Variable = character(), 
+                      Value = numeric(), Model = character())
+
+# model long-term behavior
+library(tidyr)
+for (i in 1:length(P0)) {
+  n <- 0
+  P <- P0[i]
+  Q <- Q0[i]
+  for (j in 1:500) {
+    Pn <- P[length(P)]
+    Qn <- Q[length(Q)]
+    Pn1 <- Pn - 0.1 * (Qn - 500)
+    Qn1 <- Qn + 0.2 * (Pn - 100)
+    P <- c(P, Pn1)
+    Q <- c(Q, Qn1)
+    n <- c(n, j)
+  }
+  # gather into tidy data frame and join to container
+  tmp_df <- data.frame(n, P, Q) %>% gather(Variable, Value, -n)
+  tmp_df$Model <- rep(paste('Case', LETTERS[i]), length(n))
+  df_econ <- rbind(df_econ, tmp_df)
+}
+```
+
+```{r econ-plot, echo=FALSE, fig.width=8}
+# plot results
+ggplot(df_econ, aes(x = n, y = Value, col = Variable)) + geom_line() +
+  facet_wrap(~Model, nrow = 2, scales = 'free_y') + theme(legend.position = 'bottom') +
+  ggtitle('Long-Term Behavior of System with Different Starting Conditions\n') +
+  scale_y_continuous(NULL) + scale_color_discrete(NULL)
+```
+
+In Case A, where the starting conditions are equal to the equilibrium conditions, the values remain at these conditions (this follows from the definition of equilibrium conditions).  For the three other cases, the values oscillate around zero while growing without bound -- this makes sense due to the difference in signs between the coeffcients for $P_n$ and $Q_n$.  Case B shows the greatest increase in values over the 500 periods modeled -- this is due to the fact that the magnitude of the coefficient for the reaction of $Q_n$ to $P_n$ is higher than the coefficient for the reaction of $P_n$ to $Q_n$.  Cases C and D show the same approximate variability in $P$ and $Q$, but exhibit a half-period lag relative to one another -- this is due to the difference in sign between the starting conditions and equilibrium conditions in these cases.
