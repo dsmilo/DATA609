@@ -1,0 +1,575 @@
+---
+title: "DATA 609 Assignment 3: Model Fitting and Experiment Modeling"
+author: "Dan Smilowitz"
+date: "February 15, 2017"
+output:
+  pdf_document:
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, fig.align='center')
+```
+
+# Chapter 3: Model Fitting
+
+## Section 3.1, Problem 2
+```{r s31p2}
+S <- c(5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+e <- c(0, 19, 57, 94, 134, 173, 216, 256, 297, 343, 390)
+```
+
+```{r s31p2-plot, echo=FALSE}
+library(ggplot2)
+qplot(S, e)
+```
+
+```{r s31p2-const}
+c1 <- (e[length(e)] - e[1]) / (S[length(S)] - S[1])
+```
+
+For the model $e = c_1 S$, the estimated value of the constant is $c_1 = `r round(c1, 2)`$.
+
+
+\newpage
+## Section 3.2, Problem 2a
+The residuals $r_i$ for a line $y = ax + b$ are given by $r_i = y_i - \hat{y_i} = y_i - ax_i - b$.  The goal is to minimize the largest residual $r = max(r_i)$ subject to $r - r_i \geq 0$ and $r + r_i \geq 0$.  For the six data points given, this equates to the conditions
+
+$$\begin{aligned}
+r - y_i + ax_i + b \geq 0 \\
+r + y_i - ax_i - b \geq 0
+\end{aligned}
+\hspace{0.25in}
+\textrm{for }i = 1 \dots 6$$
+
+This can be rearranged to give
+$$\begin{aligned}
+r + ax_i + b &\geq y_i \\
+r - ax_i - b &\geq -y_i
+\end{aligned}
+\hspace{0.25in}
+\textrm{for }i = 1 \dots 6$$
+
+This system can be represented through matrix multiplication:
+$$
+\left[ \begin{array}{ccc}
+1 & x_1 & 1 \\
+1 & -x_1 & -1\\
+\vdots & \vdots & \vdots \\
+1 & x_6 & 1 \\
+1 & -x_6 & 1
+\end{array} \right]
+\left[ \begin{array}{c}
+r \\
+a \\
+b
+\end{array} \right]
+\geq
+\left[ \begin{array}{c}
+y_1 \\
+-y_1 \\
+\vdots \\
+y_6 \\
+y_6
+\end{array} \right]
+$$
+
+
+This system of inequalities can be evaluated in R using linear programming
+
+```{r s32p2a}
+x <- c(1.0, 2.3, 3.7, 4.2, 6.1, 7.0)
+y <- c(3.6, 3.0, 3.2, 5.1, 5.3, 6.8)
+# set up matrix of coefficients for r, a, and b
+A <- matrix(c(
+  rep(1, 12), # each inequality has r coefficient of 1
+  c(rbind(-x, x)), # alternating a coefficients of x & -x
+  rep(c(-1, 1), 6)), # alternating b coefficients of 1 & -1
+  nrow = 12)
+# vector of constants -- alternating y & -y
+b <- c(rbind(-y, y))
+# solve system
+library(lpSolve)
+min_r <- lp("min", c(1, 0, 0), A, rep(">=", nrow(A)), b)$solution
+```
+
+The mathematical model that minimizes the largest deviation is given by
+$$y = 0.5333x + 2.1467$$
+The largest deviation under this model is $r = 0.92$, as shown below:
+
+```{r s32p2a-table, echo=FALSE}
+yhat <- min_r[2] * x + min_r[3]
+library(pander)
+pander(data.frame(`$x$` = x, `$y$` = y, `$\\hat{y}$` = yhat, `$|r|$` = abs(yhat - y),
+                  check.names = FALSE))
+```
+
+
+
+\newpage
+## Section 3.3, Problem 10
+For a power curve of the form $y = ax^n$, the  equation for $a$ is given by
+$$a = \frac{\sum x_i^n y_i}{\sum x_i^{2n}}$$
+Using the provided planet data and $n = 3/2$, the model $y = ax^{3/2}$ can be solved --- this is Kepler's third law of planetary motion, where $y$ is the period of orbit and $x$ is the distance from the sun.
+
+```{r s33p10}
+body <- c('Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune')
+period <- c(7.60e6, 1.94e7, 3.16e7, 5.94e7, 3.74e8, 9.35e8, 2.64e9, 5.22e9)
+distance <- c(5.79e10, 1.08e11, 1.5e11, 2.28e11, 7.79e11, 1.43e12, 2.87e12, 4.5e12)
+
+n <- 3/2
+
+a = sum(distance^n * period) / sum(distance^(2 * n))
+```
+
+This gives a value of $a \approx 5.4605 \times 10^{-10}$, so the model is given by
+$$period = 5.4605 \times 10^{-10} \times distance^{3/2}$$
+
+
+
+## Section 3.4, Problem 7
+### Part a
+For the model $W = k_1l^3$, the least squares estimate of $k_1$ is given by
+$$k_1 = \frac{\sum l_i^3 W_i}{\sum l_i^6}$$
+
+```{r s34p7a}
+l <- c(14.5, 12.5, 17.25, 14.5, 12.625, 17.75, 14.125, 12.625)
+W <- c(27, 17, 41, 26, 17, 49, 23, 16)
+
+k1 <- sum(l^3 * W) / sum(l^6)
+```
+
+The least squares estimate of the model is
+$$W = 0.008437 l^3$$
+
+### Part b
+If the product $lg^2$ is treated as the independent variable $x$, then the least squares estimate can be represented as
+$$k_2 = \frac{\sum x_i W_i}{\sum x_i^2} = \frac{\sum l_i g_i^2 W_i}{\sum (l_i g_i^2)^2} = \frac{\sum l_i g_i^2 W_i}{\sum l_i^2 g_i^4}$$
+
+```{r s34p7b}
+g <- c(9.75, 8.375, 11.0, 9.75, 8.5, 12.5, 9.0, 8.5)
+
+k2 <- sum(l * g^2 * W) / sum(l^2 * g^4)
+```
+
+The least squares estimate of the model is
+$$W = 0.018675 lg^2$$
+
+### Part c
+```{r s34p7c}
+W_a <- k1 * l^3
+resid_a <- W - W_a
+W_b <- k2 * l * g^2
+resid_b <- W - W_b
+```
+
+The model from part a ($W = 0.008437 l^3$) fits the data better -- as shown in the table below,  has lower maximum deviation and sum of squared deviations.  The plots below show the actual and modeled values, as well as the residuals, for both models, using the index $i$ as the x-axis.
+
+
+```{r s34p7-modelplot, echo=FALSE, fig.height=4}
+pander(data.frame(
+  a = c(max(abs(resid_a)), sum(resid_a^2)), 
+  b = c(max(abs(resid_b)), sum(resid_b^2)), 
+  row.names = c('Maximum Deviation', 'Sum of Squared Deviations')))
+
+p1 <- ggplot(data.frame(i = 1:8, W, W_a, W_b), aes(x = i)) +
+  geom_point(aes(y = W, col = 'Actual'), alpha = 0.5) +
+  geom_point(aes(y = W_a, col = 'Model a'), alpha = 0.5) +
+  geom_point(aes(y = W_b, col = 'Model b'), alpha = 0.5) +
+  scale_color_manual(values = c('black', '#F8766D', '#00BFC4')) +
+  theme(legend.title = element_blank(), legend.position = 'bottom') +
+  ggtitle('Actual and modeled values')
+
+p2 <- ggplot(data.frame(i = 1:8, resid_a, resid_b), aes(x = i)) +
+  geom_point(aes(y = resid_a, col = 'Model a'), alpha = 0.5) +
+  geom_point(aes(y = resid_b, col = 'Model b'), alpha = 0.5) +
+  geom_hline(yintercept = 0, col = 'black', lty = 3) +
+  theme(legend.title = element_blank(), legend.position = 'bottom') +
+  scale_y_continuous('Residual') +
+  ggtitle('Residuals of least squares models')
+
+library(gridExtra)
+grid.arrange(p1, p2, nrow = 1)
+```
+
+
+\newpage
+# Chapter 4: Experimental Modeling
+
+## Section 4.1, Problem 5
+```{r s41p5-data, echo=FALSE}
+location <- c('Brno, Czechoslovakia', 'Prague, Czechoslovakia',
+              'Corte, Corsica', 'Bastia, France', 'Munich, Germany',
+              'Psychro, Crete', 'Itea, Greece',
+              'Iraklion, Greece', 'Athens, Greece',
+              'Safed, Israel', 'Dimona, Israel',
+              'Netanya, Israel', 'Jerusalem, Israel',
+              'New Haven, USA', 'Brooklyn, USA')
+P <- c(341948, 1092759, 5491, 49375, 1340000, 365, 2500, 78200, 
+       867023, 14000, 23700, 70700, 304500, 138000, 2602000)
+V <- c(4.81, 5.88, 3.31, 4.9, 5.62, 2.76, 2.27, 3.85,
+       5.21, 3.7, 3.27, 4.31, 4.42, 4.39, 5.05)
+```
+
+
+### Part 1
+For the model $V = m(\log P) + b$, the transformation suggested in Problem 1 is not necessary.  As such, further steps will be continued using $V$ and $\log P$, using the base-10 logarithm.
+
+```{r s41p5-1, echo=FALSE, fig.height=4, fig.width=5.3}
+df_q5 <- data.frame(V, `$\\log P$` = log10(P), check.names = FALSE)
+pander(df_q5)
+ggplot(df_q5, aes(x = `$\\log P$`, y = V)) + geom_point() +
+  geom_abline(slope = mean(V) / mean(log10(P)), lty = 3) +
+  labs(x = 'log(P)')
+
+```
+
+\newpage
+The least-squares estimate for the slope is given by
+
+$$\begin{aligned}
+m &= \frac{15 \sum (\log P_i)(V_i) - (\sum \log P_i)(\sum V_i)}{15 \sum (\log P_i)^2 - (\sum \log P_i)^2} \\
+  &= 0.860936
+\end{aligned}$$
+
+The least-squares estimate for the the intercept is given by
+
+$$\begin{aligned}
+b &= \frac{\sum (\log P_i^2) \sum V_i - \sum (\log P_i V_i)\sum (\log P_i)}{15 \sum (\log P_i)^2 - (\sum \log P_i)^2} \\
+  &= 0.040981
+\end{aligned}$$
+
+The linear equation is given by $$V = 0.860936 \log P + 0.040981$$
+
+
+### Part 2
+```{r s41p5-2, echo=FALSE, fig.height=4}
+m <- (15*sum(log10(P) * V) - sum(log10(P)) * sum(V)) / 
+  (15 * sum((log10(P))^2) - (sum(log10(P))^2))
+b <- (sum(log10(P)^2) * sum(V) - sum(log10(P) * V) * sum(log10(P))) / 
+  (15 * sum(log10(P)^2) - sum(log10(P))^2)
+ggplot(data.frame(P, V), aes(x = P, y = V)) +
+  geom_point() +
+  stat_function(fun = function(x) m * log10(x) + b) +
+  labs(title = 'Observed data and fit model')
+```
+
+\newpage
+### Part 3
+```{r s41p5-3}
+V_pred <- m * log10(P) + b
+```
+
+```{r s41p5-3-table, echo=FALSE}
+pander(data.frame(`$V_{observed}$` = V, `$V_{predicted}$` = V_pred,
+                  check.names = FALSE, row.names = location))
+```
+
+
+### Part 4
+The average Bornstein error for this model is 0.3426 -- this is fairly good, as it represents a difference of roughly 8% of the mean of the mean value of $V$.  The model $V = 1.396P^{0.096}$ obtained in Problem 1 returns a slightly better mean Bornstein error of 0.3389.
+
+
+\newpage
+## Section 4.2, Problem 4
+```{r s42p4-data}
+X <- c(17, 19, 20, 22, 23, 25, 31, 32, 33, 36, 37, 38, 39, 41)
+Y <- c(19, 25, 32, 51, 57, 71, 141, 123, 187, 192, 205, 252, 248, 294)
+```
+
+```{r s42p4-plot, echo=FALSE}
+qplot(X, Y)
+```
+
+Since there are 14 data points, fitting a 13th-degree polynomial would likely not be appropriate.  There is a polynomial of order 13 that will pass through every data point, but this polynomial will not likely be useful for interpolation between data point or outside the observed range of data.  The best-fit 13th-degree polynomial using the least-squares criteria is graphed below:
+
+\newpage
+```{r s42p4-fit}
+poly13 <- lm(Y ~ poly(X, 13, raw = TRUE))
+poly13$coefficients[is.na(poly13$coefficients)] <- 0
+```
+
+```{r s42p4-poly, echo=FALSE}
+ggplot(data.frame(X, Y), aes(x = X, y = Y)) + geom_point() +
+  stat_function(fun = function(x) {
+    poly13$coefficients[[1]] + x * poly13$coefficients[[2]] + 
+      x^2 * poly13$coefficients[[3]] + x^3 * poly13$coefficients[[4]] +
+      x^4 * poly13$coefficients[[5]] + x^5 * poly13$coefficients[[6]] +
+      x^6 * poly13$coefficients[[7]] + x^7 * poly13$coefficients[[8]] +
+      x^8 * poly13$coefficients[[9]] + x^9 * poly13$coefficients[[10]] +
+      x^10 * poly13$coefficients[[11]] + x^11 * poly13$coefficients[[12]] +
+      x^12 * poly13$coefficients[[13]] + x^13 * poly13$coefficients[[14]]
+    })
+```
+
+This plot clearly illustrates one of the dangers of fitting high-degree polynomials to data -- there is a great deal of oscillation between the points, epecially at the beginning and end of the data range.
+
+
+\newpage
+## Section 4.3, Problem 11
+```{r s43p11-data}
+L <- c(12.5, 12.625, 14.125, 14.5, 17.25, 17.75)
+w <- c(17, 16.5, 23, 26.5, 41, 49)
+```
+
+```{r s43p11-plot, echo=FALSE}
+qplot(L, w)
+```
+
+There appears to be an upward trend in the data, but any concavity is not apparent due to the low number of data points.  None of the data points immediately appear to be outliers.
+
+A divided difference table is prepared below:
+```{r s43p11-div-diff}
+library(dplyr)
+df_bass <- data.frame(L, w) %>%
+  mutate(
+    del1 = (w - lag(w)) / (L - lag(L)),
+    del2 = (del1 - lag(del1)) / (L - lag(L, 2)),
+    del3 = (del2 - lag(del2)) / (L - lag(L, 3)),
+    del4 = (del3 - lag(del3)) / (L - lag(L, 4)),
+    del5 = (del4 - lag(del4)) / (L - lag(L, 5)))
+```
+
+```{r s43p11-diff-tbl, echo=FALSE}
+tbl_bass <- round(df_bass, 4)
+tbl_bass[is.na(tbl_bass)] <- ''
+names(tbl_bass) <- c('$L$', '$w$', '$\\Delta$', '$\\Delta^2$', 
+                    '$\\Delta^3$', '$\\Delta^4$', '$\\Delta^5$')
+pander(tbl_bass)
+```
+
+The divided differences are plotted alongside the original data below:
+```{r s43p11-diff-plot, echo=FALSE}
+ggplot(df_bass, aes(x = 1:length(L))) +
+  geom_line(aes(y = w, col = 'Data'), lwd = 1) +
+  geom_line(aes(y = del1, col = 'Delta')) +
+  geom_line(aes(y = del2, col = 'Delta2')) +
+  geom_line(aes(y = del3, col = 'Delta3')) +
+  geom_line(aes(y = del4, col = 'Delta4')) +
+  geom_point(aes(y = del5, col = 'Delta5'), show.legend = FALSE) +
+  scale_color_manual(values = c('black', '#F8766D', '#A3A500', '#00BF7D', '#00B0F6', '#E76BF3')) +
+  labs(title = 'Divided differences and original data', x = 'i', y = NULL) +
+  theme(legend.position = 'bottom', legend.title = element_blank())
+```
+
+The table and plot show that the first divided difference $\Delta$ is roughly constantly increasing.  The second divided difference $\Delta^2$ appears to be closer to constant (relative to the data), with a significant change in sign for the third value.  The third divided difference $\Delta^3$ is even closer to constant, and has values of low magnitude on either side of zero.  The fourth divided difference $\Delta^4$ is definitely constant and very close to zero.  Based on this, a second- or third-order polynomial may be a good fit to the data; both are investigated by generating a least-squares estimate.
+
+```{r s43p11-fits}
+poly2 <- lm(w ~ poly(L, 2, raw = TRUE))
+poly3 <- lm(w ~ poly(L, 3, raw = TRUE))
+```
+
+
+The two fits and their residuals are plotted below.
+
+```{r s43p11-plots, echo=FALSE, fig.height=6.5}
+lm2 <- ggplot(df_bass, aes(x = L, y = w)) + geom_point() +
+  stat_function(fun = function(x) {
+    poly2$coefficients[[1]] + x * poly2$coefficients[[2]] +
+      x^2 * poly2$coefficients[[3]]}) +
+  labs(title = 'Quadratic fit', subtitle = 'Actuals vs. fit')
+
+lm3 <- ggplot(df_bass, aes(x = L, y = w)) + geom_point() +
+  stat_function(fun = function(x) {
+    poly3$coefficients[[1]] + x * poly3$coefficients[[2]] +
+      x^2 * poly3$coefficients[[3]] + x^3 * poly3$coefficients[[4]]}) +
+  labs(title = 'Cubic fit', subtitle = 'Actuals vs. fit')
+
+res2 <- qplot(L, poly2$residuals, ylab = 'r') +
+  labs(title = 'Quadratic fit', subtitle = 'Residuals')
+
+res3 <- qplot(L, poly3$residuals, ylab = 'r') +
+  labs(title = 'Cubic fit', subtitle = 'Residuals')
+
+grid.arrange(lm2, lm3, res2, res3, nrow = 2)
+```
+
+The cubic fit appears to fit the data slightly better -- this is confirmed by its lower sum of squared deviations (`r sum(poly3$residuals^2)` vs. `r sum(poly2$residuals^2)`) and maximum deviation (`r max(abs(poly3$residuals))` vs. `r max(abs(poly2$residuals))`), but it exhibits the oscillation that can be a drawback of higher-order polynomials.  Neither fit exhibits any pattern in the residuals.  Based on the simplicity of the models and the low number of data points, the best low-order polynomial for the data is the quadratic with equation
+$$w = 48.6796 -8.4676L + 0.4726L^2 $$
+
+
+\newpage
+## Section 4.4, Problem 5
+
+### Investigation of Data
+The first 34 years of provided data show the same value of a stamp (\$0.02), which was then briefly raised for two years before returning to the same level for an additional 13 years.  The next price of \$0.03 remained for an additional 26 years.  This initial stability appears inconsistent with the increasing trend of other data points, so data before 1958 is excluded.  The rate of \$0.13 on New Years Eve 1975 is also excluded, as it represents a temporary increase.
+
+```{r s44p5-data}
+d <- c('1958-08-01', '1963-01-07', '1968-01-07', '1971-05-16', '1974-03-02',
+       '1976-07-18', '1978-05-15', '1981-03-22', '1981-11-01', '1985-02-17',
+       '1988-04-03', '1991-02-03', '1995-01-01', '1999-01-10', '2001-01-07',
+       '2002-06-30', '2006-01-08', '2007-05-14', '2008-05-12', '2009-05-11',
+       '2012-01-22')
+s <- c(0.04, 0.05, 0.06, 0.08, 0.10, 0.13, 0.15, 0.18, 0.20, 0.22, 0.25,
+       0.29, 0.32, 0.33, 0.34, 0.37, 0.39, 0.41, 0.42, 0.44, 0.45) * 100
+
+library(lubridate)
+# convert dates to days since first recorded date
+d <- date(d)
+d <- as.numeric(d - d[1])
+```
+
+```{r s44p5-scatter, echo=FALSE}
+qplot(d, s) + labs(title = 'Scatterplot of stamp cost data', 
+                   y = 'Stamp Cost [cents]', x = 'Time [days]',
+                   caption = 'Time measured in days since August 1, 1958')
+```
+
+The scatterplot indicates an increasing relationship between the variables; the rate of this increase (and thus concavity of the curve) appears to vary.
+
+### One-Term Model Investigation
+In order to see if there is a one-term model that may be applicable to this data, the variables $d$ and $s$ are transformed using the ladder of powers; since there is no clear concavity in the data, multiple transformations are attempted.  The plots of these transformed variables are shown below:
+```{r s44q5-oneterm, echo=FALSE}
+s3 <- qplot(d, s^3, main = 's^3')
+s2 <- qplot(d, s^2, main = 's^2')
+sqrts <- qplot(d, sqrt(s), main = 'sqrt(s)')
+logs <- qplot(d, log(s), main = 'log(s)')
+invsqrts <- qplot(d, -1/sqrt(s), main = '-1/sqrt(s)')
+invs <- qplot(d, -1/s, main = '-1/s')
+
+grid.arrange(s3, s2, sqrts, logs, invsqrts, invs, nrow = 2)
+
+d3 <- qplot(d^3, s, main = 'd^3')
+d2 <- qplot(d^2, s, main = 'd^2')
+sqrtd <- qplot(sqrt(d), s, main = 'sqrt(d)')
+logd <- qplot(log(d), s, main = 'log(d)')
+invsqrtd <- qplot(-1/sqrt(d), s, main = '-1/sqrt(d)')
+invd <- qplot(-1/d, s, main = '-1/d')
+
+grid.arrange(d3, d2, sqrtd, logd, invsqrtd, invd, nrow = 2)
+```
+
+Of the 12 transformations attempted, only $\sqrt{s}$ appears to create a somewhat linear relationship.  This relationship is fit and investigated:
+
+```{r s44p5-sqrt}
+lm_sqrt <- lm(sqrt(s) ~ d)
+```
+
+The fit for this fit is given by
+$$\sqrt{s} = 1.941532 + 0.000257d$$
+
+Rewriting this in terms of $s$ and $d$, it becomes
+$$s = 6.6049 \times 10^{-8} d^2 + 9.97947 \times 10^{-4} d + 3.76955$$
+
+This quadratic fit has a maximum deviation of 4.0685 and a sum of squared deviations of 84.7669.  The maximum deviation, in particular, seems to warrant further investigation.
+
+\newpage
+### Polynomial Fit Investigation
+To determine if a low-order polynomial may be an appropriate fit for this data, a divided difference table is calculated:
+```{r s44p5-div-diff}
+df_stamp <- data.frame(d, s) %>%
+  mutate(
+    del1 = (s - lag(s)) / (d - lag(d)),
+    del2 = (del1 - lag(del1)) / (d - lag(d, 2)),
+    del3 = (del2 - lag(del2)) / (d - lag(d, 3)),
+    del4 = (del3 - lag(del3)) / (d - lag(d, 4)),
+    del5 = (del4 - lag(del4)) / (d - lag(d, 5)))
+```
+
+```{r s44p5-diff-tbl, echo=FALSE}
+tbl_stamp <- sapply(df_stamp, function(x) {prettyNum(x, digits = 2)})
+tbl_stamp[is.na(tbl_stamp)] <- ''
+colnames(tbl_stamp) <- c('$d$', '$s$', '$\\Delta$', '$\\Delta^2$',
+                         '$\\Delta^3$', '$\\Delta^4$', '$\\Delta^5$')
+pander(tbl_stamp)
+```
+
+There appear to be a high number in sign changes at $\Delta^5$, indicating that there are variations at the fifth-order polynomial that will not be captured in lower-order polynomials.  As such, a fifth-order polynomial is created using the least-squares estimate:
+```{r s44p5-lm5}
+poly5 <- lm(s ~ poly(d, 5, raw = TRUE))
+```
+
+```{r s44p5-lm5-plot, echo=FALSE, fig.height=6.5}
+par(mfrow = c(2, 2))
+plot(poly5)
+```
+
+The normal Q-Q plot fit shows a significant problem with this fit -- it underestimates at high values and overestimates at low values.  To look into this, higher-level polynomials are considered:
+
+```{r s44p5-div-diff-2}
+df_stamp <- df_stamp %>%
+  mutate(
+    del6 = (del5 - lag(del5)) / (d - lag(d, 6)),
+    del7 = (del6 - lag(del6)) / (d - lag(d, 7)),
+    del8 = (del7 - lag(del7)) / (d - lag(d, 8)),
+    del9 = (del8 - lag(del8)) / (d - lag(d, 9)))
+```
+
+\newpage
+
+```{r s44p5-diff-tbl-2, echo=FALSE}
+tbl_stamp_2 <- df_stamp %>% select(d, s, del6, del7, del8, del9)
+tbl_stamp_2 <- sapply(tbl_stamp_2, function(x) {prettyNum(x, digits = 2)})
+tbl_stamp_2[is.na(tbl_stamp_2)] <- ''
+colnames(tbl_stamp_2) <- c('$d$', '$s$', '$\\Delta^6$', '$\\Delta^7$',
+                         '$\\Delta^8$', '$\\Delta^9$')
+pander(tbl_stamp_2)
+```
+
+The values of $\Delta^7$ are very nearly zero, so a polynomial of degree 6 is calculated:
+```{r s44p5-lm6}
+poly6 <- lm(s ~ poly(d, 6, raw = TRUE))
+```
+
+```{r s44p5-lm6-plot, echo=FALSE, fig.height=6.5}
+par(mfrow = c(2,2))
+plot(poly6)
+```
+
+The normal Q-Q and residual vs. fitted plots look far better for this fit, so it is investigated further.
+
+### Model Selection
+Measures of goodness of fit are shown below, followed by a plot of measured vs. predicted values
+```{r s44p5-comp-lm, echo=FALSE}
+s_pred2 <- 6.6049e-8 * d^2 + 9.97947e-4 * d + 3.76955
+s_pred5 <- predict.lm(poly5, data.frame(d))
+s_pred6 <- predict.lm(poly6, data.frame(d))
+lm2 <- c(max(abs(s - s_pred2)), sum((s - s_pred2)^2))
+lm5 <- c(max(abs(poly5$residuals)), sum(poly5$residuals^2))
+lm6 <- c(max(abs(poly6$residuals)), sum(poly6$residuals^2))
+
+df_lm <- data.frame(lm2, lm5, lm6, 
+                    row.names = c('Largest Deviation', 'Sum of Squared Deviations'))
+names(df_lm) <- c('One-Term', '5th Degree', '6th Degree')
+pander(df_lm)
+
+ggplot(data.frame(d, s, s_pred2, s_pred5, s_pred6), aes(x = d)) +
+  geom_point(aes(y = s, col = 'Actual')) +
+  geom_line(aes(y = s_pred2, col = 'One-Term'), alpha = 0.75) +
+  geom_line(aes(y = s_pred5, col = '5th Degree'), alpha = 0.75) +
+  geom_line(aes(y = s_pred6, col = '6th Degree'), alpha = 0.75) +
+  scale_color_manual(breaks = c('Actual', 'One-Term', '5th Degree', '6th Degree'),
+                     values = c('#00BA38', '#619CFF', 'black', '#F8766D'),
+                     name = 'Model') +
+  theme(legend.position = 'bottom') +
+  labs(title = 'Model comparison', subtitle = 'Actual vs. modeled values')
+```
+
+The goodness of fit measures and the plot indicate that the 6th-degree polynomial is the best model for the data.  The equation for this model is
+$$\begin{aligned}
+s = &\ 3.9502 + 0.0019 d - 1.2031 \times 10^{-6} d^2 + 3.3632 \times 10^{-10} d^3 -\\
+    &\ 3.4313 \times 10^{-14} d^4 + 1.5243 \times 10^{-18} d^5 - 2.4858 \times 10^{-23} d^6
+\end{aligned}$$
+
+### Prediction
+The three models investigated predict the following values for the value of a stamp on January 1, 2010 ($d = 18781$):
+
+  - One Term: $`r round((6.6049e-8 * 18781^2 + 9.97947e-4 * 18781 + 3.76955)/100, 4)`
+  - 5th Degree: $`r round(predict.lm(poly5, data.frame(d = c(18781)))/100, 4)`
+  - 6th Degree: $`r round(predict.lm(poly6, data.frame(d = c(18781)))/100, 4)`
+
+To get the date at which the value of a stamp will be \$1.00, the roots of the equation $\hat{s}(d) - 100$ are found.
+
+```{r s44p5-100, echo=FALSE}
+d_1 <- polyroot(c(3.76955 - 100, 9.97947e-4, 6.6049e-8))
+d_5 <- polyroot(unname(poly5$coefficients) - c(100, rep(0, 5)))
+d_6 <- polyroot(unname(poly6$coefficients) - c(100, rep(0, 6)))
+```
+
+The resulting dates for the three models are:
+
+  - One Term: June 5, 2044 ($d = 31355.91$)
+  - 5th Degree: October 15, 2026 ($d = 24912.76$)
+  - 6th Degree: *No solution*
+  
+As shown above, the 6th degree polynomial fit does not have a real solution -- just beyond the range of the given data, the model very quickly predicts decreasing, and then highly negative, values.  While this model does a good job of explaining the relationship between the variables $d$ and $s$ in the range of observed data, the high degree of the model leads to the model not being useful for forecasting.  If longer-term forecasting is desired, a lower-level model should be used.
