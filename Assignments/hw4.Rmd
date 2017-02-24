@@ -75,6 +75,40 @@ pander(data.frame(a = c(pa, rep("", 10)), b = pb, c = c(pc, rep("", 5)), row.nam
 Random sequence a rapidly degenerates to zero.  Sequence b exhibits degeneration, but it is far less rapid than part a.  Sequence c exhibits cycling beginning with the fourth number generated.
 
 \newpage
+## Section 5.3, Problem 4
+The total of the two dice is simulated by running a Monte Carlo simulation for each weighted die:
+```{r s51p4-probs}
+# load probabilities
+die_1 <- c(0.1, 0.1, 0.2, 0.3, 0.2, 0.1)
+die_2 <- c(0.3, 0.1, 0.2, 0.1, 0.05, 0.25)
+# convert to cumulative probabilities
+die_1 <- cumsum(die_1)
+die_2 <- cumsum(die_2)
+
+# set up container for sums
+tot <- numeric()
+
+for (i in 1:300) {
+  # generate two random numbers
+  d1 <- runif(1)
+  d2 <- runif(1)
+  # get rolls associated with values
+  d1 <- min(which(d1 < die_1))
+  d2 <- min(which(d2 < die_2))
+  # add sum to set of sums
+  tot <- c(tot, d1 + d2)
+}
+```
+
+The count of observation by sum is below:
+```{r s53p4-tbl, echo=FALSE}
+tot_cnt <- data.frame(unname(table(tot)))$Freq
+pander(data.frame(Sum = 2:12, Count = tot_cnt, Proportion = tot_cnt/300))
+```
+
+
+
+\newpage
 ## Section 5.3, Project 4
 To generate the probabilities for the Monte Carlo simulation, the provided odds must be converted to probabilies:
 $$n:1 \ \ \textrm{odds} \implies \ \frac{1}{n+1} \ \ \textrm{probability}$$
