@@ -1,0 +1,297 @@
+---
+title: "DATA 609 Assignment 6: Linear Programming"
+author: "Dan Smilowitz"
+date: "March 11, 2017"
+header-includes:
+  - \usepackage{caption}
+output:
+  pdf_document:
+    highlight: pygments
+    fig_caption: no
+    fig_height: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, fig.align='center', comment=NA, echo=FALSE)
+```
+
+## Section 7.1, Problem 2
+The rancher must decide how to meet the minimum weekly nutritional requirements for an average-sized horse in such a way as to minimize cost.
+
+The decision variables are as follows:
+
+  - $x_h$: bales of hay purchased
+  - $x_o$: sacks of oats purchased
+  - $x_f$: feeding blocks purchased
+  - $x_p$: sacks of high-protein concetrate purchased
+
+The function that must be minimized is the cost:
+$$c(X) = 1.80x_h + 3.50x_o + 0.40x_f + 1.00x_p$$
+
+There are three constraints related to the nutritional requirements:
+$$\begin{aligned}
+&0.5x_h + 1.0x_o + 2.0x_f + 6.0x_p \geq 40.0 &\textrm{(Protein)} \\
+&2.0x_h + 4.0x_o + 0.5x_f + 1.0x_p \geq 20.0 &\textrm{(Carbohydrates)} \\
+&5.0x_h + 2.0x_o + 1.0x_f + 2.5x_p \geq 45.0 &\textrm{(Roughage)} \\
+\end{aligned}$$
+$$\textrm{where} \ \  x_h, x_o, x_f, x_p \geq 0$$
+
+The assumptions for a linear program are met:
+
+  - There is a unique objective function $c(X)$
+  - The objective and constraint functions contain only variables of order 1
+  - The objective and constraint functions contain no products of variables
+  - The coefficients in the objective and constraint functions are constant
+  - It can be reasonably assumed that the decision variables can assume fractional values
+
+
+
+## Section 7.2, Problem 6
+```{r s72-plot}
+library(ggplot2)
+ggplot(data.frame(x = c(0, 6)), aes(x)) +
+  geom_hline(yintercept = 0, col = 'black') +
+  geom_vline(xintercept = 0, col = 'black') +
+  geom_area(stat = 'function', fun = function(x) {(48 - 8 * x) / 6},
+            aes(fill = '1lumber'), col = NA, alpha = 0.2) +
+  geom_area(stat = 'function', fun = function(x) {20 - 4 * x},
+            aes(fill = '2carpentry'), col = NA, alpha = 0.2) +
+  geom_polygon(data = data.frame(x = c(0, 6, 6, 0), y = c(5, 5, 20, 20)),
+               aes(x, y, fill = '3demand'), col = NA, alpha = 0.2) +
+  stat_function(fun = function(x) {(48 - 8 * x) / 6}, n = 500,
+                aes(col = '1lumber'), lwd = 0.75) +
+  stat_function(fun = function(x) {20 - 4 * x}, n = 500,
+                aes(col = '2carpentry'), lwd = 0.75) +
+  stat_function(fun = function(x) {5}, n = 500,
+                aes(col = '3demand'), lwd = 0.75) +
+  geom_point(data = data.frame(x = c(0, 0, 2.25), y = c(5, 8, 5)),
+             aes(x, y), size = 2, alpha = 0.75) +
+  geom_text(data = data.frame(x = c(0.1, 0.1, 2.3), y = c(4, 9, 6), l = LETTERS[1:3]),
+            aes(x, y, label = l)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  scale_color_discrete('Constraint', labels = c('Lumber', 'Carpentry', 'Demand')) +
+  scale_fill_discrete('Constraint', labels = c('Lumber', 'Carpentry', 'Demand')) +
+  theme_minimal() + theme(legend.position = 'bottom')
+```
+
+The feasible area is the triangle outlined by the intersection of the lumber constraint, the demand constraint, and the non-negativity constraint of $x$.  These three points ($A$, $B$, and $C$) are located at $(0,5)$, $(0,8)$, and $(2.25, 5)$.  The maximum value must lie at one of these extreme points, so the objective function $10x + 35y$ is calculated for each:
+```{r s72-tbl, echo=FALSE}
+library(pander)
+s72 <- data.frame(x = c(0, 0, 2.25), y = c(5, 8, 5))
+s72$f <- 10 * s72$x + 35 * s72$y
+rownames(s72) <- sapply(LETTERS[1:3], function(x) {paste0('$', x, '$')})
+names(s72) <- c('$x$', '$y$', '$f(x,y)$')
+pander(s72)
+```
+
+So the function is maximized at point $B$: $$f(0, 8) = 280$$
+
+
+## Section 7.3, Problem 6
+The constraints, with $x$ & $y$ re-assigned symbols $x_1$ & $x_2$, and slack variables added can be shown as
+$$\begin{aligned}
+8x_1 + 6x_2 + y_1 &= 48 &\textrm{(lumber)}\\
+4x_1 +  x_2 + y_2 &= 20 &\textrm{(carpentry)}\\
+        x_2 - y_3 &=  5 &\textrm{(demand)}
+\end{aligned}$$
+$$x_1, x_2, y_1, y_2, y_3 \geq 0$$
+
+The coefficient for $y_3$ is negative since the sign in its inequality is the opposite of the other constraints.
+
+Due to the demand constraint ($x_2 \geq 5$), it is known that any points considered with $x_2 = 0$ will be infeasible.  As such, to find extreme points, the variables $x_1, y_1, y_2,$ & $y_3$ are set to zero in pairs to find feasible extreme points.
+
+\boldmath $x_1, y_1 = 0$: \unboldmath
+$$\begin{aligned}
+6x_2 &= 48 \\
+x_2 + y_2 &= 20 \\
+x_2 - y_3 &= 5
+\end{aligned}$$
+This has the solution $x_2 = 8; y_2 = 12; y_3 = 3$.  This is feasible since $y_2$ & $y_3$ are non-negative.  This corresponds to the point $(0,8)$, represented by point $B$ in the previous problem.
+
+\boldmath $x_1, y_2 = 0$: \unboldmath
+$$\begin{aligned}
+6x_2 + y_1 &= 48\\
+x_2 &= 20\\
+x_2 - y_3 &= 5
+\end{aligned}$$
+This has the solution $x_2 = 20; y_1 = -36; y_3 = -15$.  This is not feasible since $y_1$ & $y_3$ are negative.
+
+\boldmath $x_1, y_3 = 0$: \unboldmath
+$$\begin{aligned}
+6x_2 + y_1 &= 48\\
+x_2 + y_2 &= 20\\
+x_2  &= 5
+\end{aligned}$$
+This has the solution $x_2 = 5; y_1 = 18; y_2 = 15$.  This is feasible since $y_1$ & $y_3$ are non-negative.  This corresponds to the point $(0,5)$, represented by the point $A$ in the previous problem.
+
+\boldmath $y_1, y_2 = 0$: \unboldmath
+$$\begin{aligned}
+8x_1 + 6x_2 &= 48\\
+4x_1 +  x_2 &= 20\\
+        x_2 - y_3 &= 5
+\end{aligned}$$
+This has the solution $x_2 = 2; x_1 = 4.5; y_3 = -3$.  This is not feasible since $y_3$ is negative.
+
+\boldmath $y_1, y_3 = 0$: \unboldmath
+$$\begin{aligned}
+8x_1 + 6x_2 &= 48\\
+4x_1 +  x_2 + y_2 &= 20\\
+        x_2 &= 5
+\end{aligned}$$
+This has the solution $x_2 = 5; x_1 = 2.25; y_2 = 6$.  This is feasible since $y_2$ is non-negative.  This corresponds to the point $(2.25,5)$, represented by the point $C$ in the previous problem.
+
+\boldmath $y_2, y_3 = 0$: \unboldmath
+$$\begin{aligned}
+8x_1 + 6x_2 + y_1 &= 48\\
+4x_1 +  x_2 &= 20\\
+        x_2 &= 5
+\end{aligned}$$
+This has the solution $x_2 = 5; x_1 = 3.75; y_1 = -36$.  This is not feasible since $y_1$ & $y_3$ are negative.
+
+
+```{r s73-tbl}
+s73 <- s72
+rownames(s73) <- 1:3
+names(s73) <- c('$x_1$', '$x_2$', '$f(x_1,x_2)$')
+pander(s73)
+```
+
+As above, the function is maximized: $$f(0, 8) = 280$$
+
+
+## Section 7.4, Problem 6
+The problem can be shown in tableau format:
+$$\begin{aligned}
+8x_1 + 6x_2 + y_1 &= 48\\
+4x_1 +  x_2 + y_2 &= 20\\
+     -  x_2 + y_3 &= -5\\
+-10x_1 - 35x_2 + z &= 0
+\end{aligned}$$
+
+
+\captionsetup{labelformat=empty}
+```{r s74-tab0}
+tab0 <- matrix(c(8, 6, 1, 0, 0, 0, 48,
+                 4, 1, 0, 1, 0, 0, 20,
+                 0, -1, 0, 0, 1, 0, -5,
+                 -10, -35, 0, 0, 0, 1, 0),
+               nrow = 4, byrow = TRUE,
+               dimnames = list(NULL, 
+                               c('$x_1$', '$x_2$', '$y_1$', '$y_2$', '$y_3$', '$z$', 'RHS')))
+pander(tab0, caption = 'Tableau 0')
+```
+
+The entering value is $x_2$, corresponding to -35 in the bottom row.
+
+```{r s74-tab05}
+Ratio <- c(8, 20, 5, '*')
+tab05 <- cbind(tab0, Ratio)
+pander(tab05)
+```
+
+The exiting variable is $y_3$, corresponding to the ratio of 5 in the third row.
+
+The third row is divided by the coefficient for $x_2$, and $x_2$ is eliminated from the remaining rows:
+```{r s74-tab1}
+tab1 <- tab0
+tab1[3, ] <- tab1[3, ] / tab1[3, 2]
+tab1[1, ] <- tab1[1, ] - 6 * tab1[3, ]
+tab1[2, ] <- tab1[2, ] - tab1[3, ]
+tab1[4, ] <- tab1[4, ] + 35 * tab1[3, ]
+pander(tab1, caption = 'Tableau 1')
+```
+
+The next entering variable is $y_3$, corresponding -35 in the last row.
+
+```{r s74-tab15}
+Ratio <- c(3, 15, -5, '*')
+tab15 <- cbind(tab1, Ratio)
+pander(tab15)
+```
+
+The exiting variable is $y_1$, corresponding to the ratio of 3 in the first row.  The first row is divided by the coefficient for $y_3$, and $y_3$ is eliminated from all other rows:
+```{r s74-tab2}
+tab2 <- tab1
+tab2[1, ] <- tab2[1, ] / tab2[1, 5]
+tab2[2, ] <- tab2[2, ] - tab2[1, ]
+tab2[3, ] <- tab2[3, ] + tab2[1, ]
+tab2[4, ] <- tab2[4, ] + 35 * tab2[1, ]
+pander(tab2, caption = 'Tableau 2')
+```
+
+There are no negative coefficients in the last row, so the solution provided is optimal.  The two indepdent variables $x_1$ and $y_1$ have a value of 0.  Substituting these values into the first constraint gives $x_2 = 8$.  Thus, this solution corresponds to the same solutions as above: $$z(0, 8) = 280$$
+
+
+
+## Section 7.5, Problem 1
+The extreme point $(12,15)$ remains optimal if the slope of the objective function in the $x_1x_2$-plane lies between $-\frac{2}{3}$ (lumber constraint) and $-\frac{5}{4}$ (labor constraint).  The slope of the objective function $z = c_1x_1 + c_2x_2$ is given by $-\frac{c_1}{c_2}$.  Given $c_1 = 25$, the sensitiviity of the solution to changing $c_2$ can be solved using
+$$\begin{aligned}
+- \frac{5}{4} \leq - \frac{25}{c_2} \leq - \frac{2}{3} \\
+-\frac{4}{5} \geq -\frac{c_2}{25} \geq -\frac{3}{2} \\
+20 \leq x_2 \leq 37.5
+\end{aligned}$$
+
+For value of the profit per bookcase between \$20 and \$37.50, the carpenter should continue to produce 12 tables and 15 bookcases. If the value falls below \$20, the carpenter should produce only tables; if the value rises above \$37.50, he should produce only bookcases.  If the value falls exactly at either of these points, producing exclusively one item or the mix of 12 tables and 15 bookcases will yield the same optimal profit.  Interestingly, the sensitivity of the constant $c_2$ is the same as that of $c_1$ -- this is due to the linear additive nature of the relationship between $x_1$ and $x_2$ in the objective function $z$.
+
+
+
+\newpage
+## Section 7.6, Problem 3
+A function is created to calculate the value of $c$ that minimizes the total absolute deviation of a model $y = c x^{power}$.  The function takes data ($x$ and $y$), the power, the range of interest $(a,b)$, and tolerance $t$ as inputs.  After applying the golden section method, it returns the best estimate $c_{opt}$ and the minimum deviation $f(c_{opt})$.
+
+```{r s76, echo=TRUE}
+# golden ratio
+r <- 0.618
+# create function to calculate minimum value
+golden_section <- function(x, y, power, a, b, t) {
+  # set up initial c1 & c2
+  c1 <- a + (1 - r) * (b - a)
+  c2 <- a + r * (b - a)
+  # determine current interval
+  ival <- min(b - c1, c2 - a)
+  # create function f(c)
+  f <- function(c) {
+    sum(abs(y - x^power * c))
+  }
+  # loop until within tolerance
+  while (ival > t) {
+    ival <- min(b - c1, c2 - a)
+    # calculate values at endpoints
+    f1 <- f(c1)
+    f2 <- f(c2)
+    # adjust a & b based on f(x1) & f(x2)
+    if (f1 > f2) {
+      a <- c1
+      c1 <- c2
+      c2 <- a + r * (b - a)
+    } else {
+      b <- c2
+      c2 <- c1
+      c1 <- a + (1 - r) * (b - a)
+    }
+  }
+  # record and return best values
+  c_opt <- (a + b) / 2
+  return(list(c = c_opt, f = do.call(f, list(c_opt))))
+}
+```
+
+The data is loaded in, and the function is applied for powers 1-3 using a tolerance $t = 0.01$.  The range is set to be $(0,10)$ to capture the highest possible slope between any two points.
+
+```{r s76-res}
+x <- c(7, 14, 21, 28, 35, 42)
+y <- c(8, 41, 133, 250, 280, 297)
+
+ca <- golden_section(x, y, 1, 0, 10, 0.01)
+cb <- golden_section(x, y, 2, 0, 10, 0.01)
+cc <- golden_section(x, y, 3, 0, 10, 0.01)
+
+res <- data.frame('$c_{opt}$' = c(ca$c, cb$c, cc$c),
+                  '$f(c_{opt})$' = c(ca$f, cb$f, cc$f),
+                  check.names = FALSE)
+
+rownames(res) <- c('$y = cx$', '$y = cx^2$', '$y = cx^3$')
+
+pander(res)
+```
+
