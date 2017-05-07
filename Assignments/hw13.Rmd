@@ -1,0 +1,209 @@
+---
+title: "DATA 609 Assignment 13: Graphs as Models"
+author: "Dan Smilowitz"
+header-includes:
+  - \usepackage{caption}
+output:
+  pdf_document:
+    highlight: pygments
+    fig_caption: no
+    fig_height: 3.45
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, fig.align='center', comment=NA, echo=FALSE)
+```
+
+## Section 15.1, Problem 4
+Validation of the arms race model would require validation of both the parameters and the outcomes.  The parameters $x_0$, $y_0$, $s$, and $e$ could be estimated using studies of military policy for countries $X$ and $Y$, research on the efficacy of missile strikes on population centers and military installations, and knowledge of the distribution of population and missiles across the two countries.  The study of the previous arms races mentioned in the section introduction could serve to validate the outcomes of the model, assuming that nuclear arms races manifest in a manner similar to arms races involving more traditional warfare.
+
+
+## Section 15.2, Problem 1
+```{r s2, echo=TRUE}
+# create functions for y & x
+y.x <- function(x) {120 + x/2}
+x.y <- function(y) {60 + y/3}
+# set initial values
+x <- 100
+y <- 200
+# get numerical solution
+library(tidyverse)
+for (i in 1:20) {
+  # get last values of x & y
+  xn <- last(x)
+  yn <- last(y)
+  # calculate & new values
+  x <- c(x, x.y(yn))
+  y <- c(y, y.x(xn))
+}
+```
+
+### Parts a & b
+```{r s2-ab}
+theme_set(theme_light())
+base <- data.frame(n = 1:length(x) - 1, x, y)
+ggplot(base, aes(x = n)) +
+  geom_point(aes(y = x, col = 'X')) +
+  geom_line(aes(y = x, col = 'X')) +
+  geom_point(aes(y = y, col = 'Y')) +
+  geom_line(aes(y = y, col = 'Y')) +
+  labs(title = 'Numerical model of arms race',
+       y = 'Number of missiles') +
+  scale_color_discrete('Country') +
+  theme(legend.position = 'bottom')
+```
+
+An equilibrium value of $(x = 120, y = 180)$ is reached at roughly $n = 6$.
+
+### Part c
+```{r s2-c}
+# list of initial conditions
+conds <- list(c(200, 100), c(200, 200), c(60, 120), c(120, 60))
+# container for models
+var_start <- data.frame()
+# run model for each scenario
+for (l in 1:length(conds)) {
+  x <- conds[[l]][1]
+  y <- conds[[l]][2]
+  scenario <- paste0('x0 = ', x, ', y0 = ', y)
+  for (i in 1:10) {
+    # get last values of x & y
+    xn <- last(x)
+    yn <- last(y)
+    # calculate & new values
+    x <- c(x, x.y(yn))
+    y <- c(y, y.x(xn))
+  }
+  df <- data.frame(n = 1:length(x) - 1, x, y, i = scenario)
+  var_start <- rbind(var_start, df)
+}
+# tidy
+var_start <- var_start %>% gather(Country, Missiles, c(x, y))
+var_start$Country <- factor(var_start$Country)
+# plot
+ggplot(var_start, aes(x = n, y = Missiles, col = Country)) +
+  geom_point() + geom_line() +
+  facet_wrap(~i, ncol = 2) +
+  labs(title = 'Numerical model of arms race',
+       subtitle = 'Using varying starting conditions') +
+  theme(legend.position = 'none')
+```
+
+Based on the plots of the 4 additional sets of starting conditions, the equilibrium at $(180, 120)$ is stable.
+
+### Part d
+Using the same starting conditions as above, with 4 additional sets of coefficients:
+```{r s2-d}
+# create functions for y & x
+y.x2 <- function(x, s) {120 + x * s}
+x.y2 <- function(y, s) {60 + y * s}
+# list of initial conditions
+conds2 <- list(c(1/3, 1/2), c(1, 1), c(1/2, 1/2), c(1/3, 1/3))
+# container for models
+var_surv <- data.frame()
+# run model for each scenario
+for (l in 1:length(conds)) {
+  sy <- conds2[[l]][1]
+  sx <- conds2[[l]][2]
+  scenario <- paste0('s_x = ', ifelse(sx < 1, paste0('1/', 1/sx), sx),
+                     ', s_y = ', ifelse(sy < 1, paste0('1/', 1/sy), sy))
+  # set initial values
+  x <- 100
+  y <- 200
+  for (i in 1:10) {
+    # get last values of x & y
+    xn <- last(x)
+    yn <- last(y)
+    # calculate & new values
+    x <- c(x, x.y2(yn, sx))
+    y <- c(y, y.x2(xn, sy))
+  }
+  df <- data.frame(n = 1:length(x) - 1, x, y, i = scenario)
+  var_surv <- rbind(var_surv, df)
+}
+# tidy
+var_surv <- var_surv %>% gather(Country, Missiles, c(x, y))
+var_surv$Country <- factor(var_surv$Country)
+# plot
+ggplot(var_surv, aes(x = n, y = Missiles, col = Country)) +
+  geom_point() + geom_line() +
+  facet_wrap(~i, ncol = 2, scales = 'free_y') +
+  labs(title = 'Numerical model of arms race',
+       subtitle = 'Using varying survival coefficients') +
+  theme(legend.position = 'none')
+
+```
+
+Clearly changing the survival coefficients has a significant effect on the model -- some scenarios yield new equilibria; others yield unstable systems.
+
+
+## Section 15.3, Problem 4
+In a competitive market with fixed total demand, a firm must change its price in order to generate an additional unit of sales.  An effect of this is that each sale causes the firm to further lower its price in order to generate another unit of sale.  Therefore, the marginal revenue (the additional revenue generated sales of one additional unit) is the price gained from the sale of that unit minus the adjustment of revenues from prior units resulting from the price reduction.  This follows because the price is not set dynamically for each unit, but rather is set for the entirety of all units sold.
+
+As an example, imagine a firm that could generate a sale of 1 unit at a cost of \$20, but would need to lower its price to \$15 to sell another unit.  The revenue of the first sale is clearly \$20, and the revenue of the second unit's sale is \$15.  However, in order to sell two units, the price must be set at \$15 -- this means that the revenue for the first sale is reduced from \$20 to \$15.  Thus the marginal revenue of the second unit of sale is $\$15 - \left(\$20 - \$15 \right) \times 1 = \$10$.
+
+In this system, since the price is set by the market, the marginal revenue is a flat number with quantity (since there is no price adjustment).
+
+
+## Section 15.4, Problem 1
+```{r s4-d}
+library(Hmisc)
+x_s <- c(3, 5, 8)
+y_s <- c(1, 3, 7)
+supply <- data.frame(bezier(x = x_s, y = y_s, evaluation = 500))
+supply_tax <- data.frame(bezier(x = x_s, y = y_s + 2, evaluation = 500))
+x_d1 <- c(3, 4, 5)
+y_d1 <- c(8, 3, 1)
+demand_steep <- data.frame(bezier(x = x_d1, y = y_d1, evaluation = 500))
+x_d2 <- c(3, 5, 8)
+y_d2 <- c(5.5, 4, 3)
+demand_flat <- data.frame(bezier(x = x_d2, y = y_d2, evaluation = 500))
+annot_d <- data.frame(lab = c('Supply', 'Supply after Tax', 'Steep Demand', 'Flat Demand'),
+                    x = c(x_s[3] + 1, x_s[3] + 1, x_d1[1] - 1, x_d2[1] - 1),
+                    y = c(y_s[3], y_s[3] + 2, y_d1[1], y_d2[1]))
+
+ggplot(data.frame()) +
+  geom_path(data = supply, aes(x, y, col = 'Supply'), size = 1) +
+  geom_path(data = supply_tax, aes(x, y, col = 'Supply'), lty = 2) +
+  geom_path(data = demand_steep, aes(x, y, col = 'Demand'), size = 1) +
+  geom_path(data = demand_flat, aes(x, y, col = 'Demand'), size = 1) +
+  geom_text(data = annot_d, aes(x, y, label = lab)) +
+  scale_x_continuous("Quantity", expand = c(0, 0), labels = NULL, limits = c(0, 10)) +
+  scale_y_continuous("Price", expand = c(0, 0), labels = NULL, limits = c(0, 10)) +
+  theme_classic() + theme(legend.position = 'none') +
+  labs(title = 'Impact of gasoline tax on customers and businesses',
+       subtitle = 'For varying demand curves')
+```
+
+For the steep demand curve, the price increase is nearly equal to the amount of tax -- this means that the tax will fall primarily on customers.  For the flat demand curve, the increase in price is a small portion of the amount of tax -- this means that the tax will fall primarily on the industry.
+
+```{r s4-s}
+demand <- data.frame(bezier(x = (x_d1 + x_d2) / 2, y = (y_d1 + y_d2) / 2, evaluation = 500))
+supply_steep <- data.frame(bezier(x = rev(x_d1), y = y_d1, evaluation = 500))
+supply_steep_t <- data.frame(bezier(x = rev(x_d1), y = y_d1 + 1, evaluation = 500))
+supply_flat <- data.frame(bezier(x = rev(x_d2), y = y_d2, evaluation = 500))
+supply_flat_t <- data.frame(bezier(x = rev(x_d2), y = y_d2 + 1, evaluation = 500))
+annot_s <- data.frame(lab = c('Steep Supply', 'Flat Supply', 'Demand'),
+                    x = c(x_d1[3] + 1, x_d2[3] + 1, (x_d1[1] + x_d2[1]) / 2 - 1),
+                    y = c(y_d1[1], y_d2[1], (y_d1[1] + y_d2[1]) / 2))
+
+
+ggplot(data.frame()) +
+  geom_path(data = supply_steep, aes(x, y, col = 'Supply'), size = 1) +
+  geom_path(data = supply_flat, aes(x, y, col = 'Supply'), size = 1) +
+  geom_path(data = supply_steep_t, aes(x, y, col = 'Supply'), lty = 2) +
+  geom_path(data = supply_flat_t, aes(x, y, col = 'Supply'), lty = 2) +
+  geom_path(data = demand, aes(x, y, col = 'Demand'), size = 1) +
+  geom_text(data = annot_s, aes(x, y, label = lab)) +
+  scale_x_continuous("Quantity", expand = c(0, 0), labels = NULL, limits = c(0, 10)) +
+  scale_y_continuous("Price", expand = c(0, 0), labels = NULL, limits = c(0, 10)) +
+  theme_classic() + theme(legend.position = 'none') +
+  labs(title = 'Impact of gasoline tax on customers and businesses',
+       subtitle = 'For varying supply curves')
+```
+
+For the steep supply curve, the price increase the increase in price is a small portion of the amount of tax -- this means that the tax will fall primarily on the industry.  For the flat supply curve, the increase in price is nearly equal to the amount of tax -- this means that the tax will fall primarily on customers.
+
+
+## Section 15.5, Problem 1
+If the demand curve does not shift to the left during the embargo due to changes in behavior by consumers, then the new demand curve $D^\prime$ may shift to the right following the availability of increased supply.  If prices drop significantly compared to the prices during the embargo, customers may be willing to move their "leisure" point to the right to take advantage of the newly-available cheaper gas.
